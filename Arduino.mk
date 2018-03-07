@@ -1165,7 +1165,9 @@ else
 endif
 
 # Returns the ISP port (first wildcard expansion) if it exists, otherwise it errors.
-get_isp_port = $(if $(wildcard $(ISP_PORT)),$(firstword $(wildcard $(ISP_PORT))),$(if $(findstring Xusb,X$(ISP_PORT)),$(ISP_PORT),$(error ISP port $(ISP_PORT) not found!)))
+ifneq ($(ISP_PROG), usbtiny)
+	get_isp_port = $(if $(wildcard $(ISP_PORT)),$(firstword $(wildcard $(ISP_PORT))),$(if $(findstring Xusb,X$(ISP_PORT)),$(ISP_PORT),$(error ISP port $(ISP_PORT) not found!)))
+endif
 
 # Command for avr_size: do $(call avr_size,elffile,hexfile)
 ifneq (,$(findstring AVR,$(shell $(SIZE) --help)))
@@ -1481,7 +1483,7 @@ endif
 AVRDUDE_ISP_OPTS = -c $(ISP_PROG) -b $(AVRDUDE_ISP_BAUDRATE)
 
 ifndef ISP_PORT
-    ifneq ($(strip $(ISP_PROG)),$(filter $(ISP_PROG), atmelice_isp usbasp usbtiny gpio linuxgpio avrispmkii dragon_isp dragon_dw))
+    ifneq ($(strip $(ISP_PROG)),$(filter $(ISP_PROG), atmelice_isp usbasp gpio linuxgpio avrispmkii dragon_isp dragon_dw))
         # switch for sam devices as bootloader will be on usb serial if using stk500_v2
         ifeq ($(findstring sam, $(strip $(ARCHITECTURE))), sam)
             AVRDUDE_ISP_OPTS += -P $(call get_monitor_port)
@@ -1553,9 +1555,13 @@ else ifeq ($(findstring bossac, $(strip $(UPLOAD_TOOL))), bossac)
 		$(MAKE) reset
 endif
 		$(MAKE) do_sam_upload
+else 
+ifeq ($(ISP_PROG), usbtiny)
+		$(MAKE) do_usbtiny_upload
 else
-		$(MAKE) reset
-		$(MAKE) do_upload
+	$(MAKE) reset
+	$(MAKE) do_upload
+endif
 endif
 
 raw_upload:	$(TARGET_HEX) verify_size
@@ -1565,6 +1571,10 @@ else
 		$(MAKE) error_on_caterina
 		$(MAKE) do_upload
 endif
+
+do_usbtiny_upload:
+	$(AVRDUDE) -c $(ISP_PROG) $(AVRDUDE_COM_OPTS) -U flash:w:$(TARGET_HEX):i
+
 
 do_upload:
 		$(AVRDUDE) $(AVRDUDE_COM_OPTS) $(AVRDUDE_ARD_OPTS) \
